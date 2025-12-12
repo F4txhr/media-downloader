@@ -3,6 +3,7 @@
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
+const ytdl = require('ytdl-core');
 
 const ALLOWED_HOST_SUFFIXES = [
   'instagram.com',
@@ -45,8 +46,8 @@ function sendError(res, statusCode, message) {
 function getSafeFilename(targetUrl, remoteHeaders) {
   const disposition = remoteHeaders['content-disposition'];
   if (typeof disposition === 'string') {
-    // Very small best-effort parser for filename="..."
-    const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^\";]+)/i);
+    // Very small best-effort parser for filename=\"...\"
+    const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^\\";]+)/i);
     if (match && match[1]) {
       const raw = match[1].trim();
       const decoded = decodeURIComponent(raw.replace(/['"]/g, ''));
@@ -73,7 +74,134 @@ function getSafeFilename(targetUrl, remoteHeaders) {
   return 'media-download';
 }
 
-function proxyRequest(targetUrl, res, remainingRedirects) {
+function detectPlatform(hostname) {
+  const host = (hostname || '').toLowerCase();
+
+  if (host.includes('youtube.com') || host.includes('youtu.be') || host.includes('ytimg.com')) {
+    return 'youtube';
+  }
+
+  // Platform lain bisa ditambahkan di sini di masa depan.
+  return 'generic';
+}
+
+async function handleYouTubeDownload(targetUrl, res, options) {
+  const type = (options && options.type) || 'video';
+  const quality = (options && options.quality) || 'auto';
+
+  let info;
+  try {
+    info = await ytdl.getInfo(targetUrl);
+  } catch (err) {
+    sendError(res, 502, 'Gagal mengambil informasi video YouTube.');
+    return;
+  }
+
+  const isAudio = type === 'audio';
+  let chosenFormat;
+
+  if (isAudio) {
+    let audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+    if (!audioFormats.length) {
+      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.');
+      return;
+    }
+
+    audioFormats = audioFormats.filter((f) => typeof f.audioBitrate === 'number');
+    if (!audioFormats.length) {
+      audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+    }
+
+    if (!audioFormats.length) {
+      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.');
+      return;
+    }
+
+    audioFormats.sort((a, b) => {
+      const aBit = a.audioBitrate || 0;
+      const bBit = b.audioBitrate || 0;
+      return aBit - bBit;
+    });
+
+    if (quality === 'low') {
+      chosenFormat = audioFormats[0];
+    } else if (quality === 'medium') {
+      chosenFormat = audioFormats[Math.floor(audioFormats.length / 2)];
+    } else {
+      chosenFormat = audioFormats[audioFormats.length - 1];
+    }
+  } else {
+    let videoFormats = info.formats.filter((f) => f.hasVideo && f.hasAudio);
+    if (!videoFormats.length) {
+      videoFormats = info.formats.filter((f) => f.hasVideo);
+    }
+    if (!videoFormats.length) {
+      sendError(res, 502, 'Stream video tidak tersedia untuk konten ini.');
+      return;
+    }
+
+    const desiredHeight = parseInt(quality, 10);
+    if (!Number.isNaN(desiredHeight)) {
+      const exact = videoFormats.filter((f) => f.height === desiredHeight);
+      if (exact.length) {
+        chosenFormat = exact[0];
+      } else {
+        const lowerOrEqual = videoFormats
+          .filter((f) => typeof f.height === 'number' && f.height <= desiredHeight)
+          .sort((a, b) => (b.height || 0) - (a.height || 0));
+        if (lowerOrEqual.length) {
+          chosenFormat = lowerOrEqual[0];
+        }
+      }
+    }
+
+    if (!chosenFormat) {
+      const withHeight = videoFormats.filter((f) => typeof f.height === 'number');
+      if (withHeight.length) {
+        withHeight.sort((a, b) => (b.height || 0) - (a.height || 0));
+        chosenFormat = withHeight[0];
+      } else {
+        chosenFormat = videoFormats[0];
+      }
+    }
+  }
+
+  if (!chosenFormat) {
+    sendError(res, 502, 'Tidak dapat menentukan format unduhan yang sesuai.');
+    return;
+  }
+
+  const filenameBase = getSafeFilename(targetUrl, {}) || 'media-download';
+  const container = chosenFormat.container || (isAudio ? 'mp3' : 'mp4');
+  const safeBase = filenameBase.replace(/\.[^.]+$/, '');
+  const filename = (safeBase || 'media-download') + '.' + container.replace(/[^a-z0-9]/gi, '');
+
+  res.statusCode = 200;
+  res.setHeader('Content-Type', chosenFormat.mimeType || (isAudio ? 'audio/mpeg' : 'video/mp4'));
+  res.setHeader(
+    'Content-Disposition',
+    'attachment; filename="' + filename.replace(/"/g, '') + '"'
+  );
+  res.setHeader('Cache-Control', 'no-store');
+
+  const stream = ytdl(targetUrl, { format: chosenFormat });
+
+  stream.on('error', () => {
+    if (!res.headersSent) {
+      sendError(res, 502, 'Terjadi kesalahan saat mengalirkan data dari YouTube.');
+    } else {
+      try {
+        res.destroy();
+      } catch (_) {
+        // ignore
+      }
+    }
+  });
+
+  stream.pipe(res);
+}
+
+function proxyRequest(targetUrl, res, remainingRedirects, options) {
   if (remainingRedirects <= 0) {
     sendError(res, 502, 'Terlalu banyak redirect dari server tujuan.');
     return;
@@ -101,6 +229,12 @@ function proxyRequest(targetUrl, res, remainingRedirects) {
     return;
   }
 
+  const platform = detectPlatform(urlObj.hostname);
+  if (platform === 'youtube') {
+    handleYouTubeDownload(urlObj.toString(), res, options || {});
+    return;
+  }
+
   const client = urlObj.protocol === 'https:' ? https : http;
 
   const remoteReq = client.get(urlObj.toString(), (remoteRes) => {
@@ -116,7 +250,7 @@ function proxyRequest(targetUrl, res, remainingRedirects) {
         return;
       }
 
-      proxyRequest(nextUrl.toString(), res, remainingRedirects - 1);
+      proxyRequest(nextUrl.toString(), res, remainingRedirects - 1, options);
       return;
     }
 
@@ -190,18 +324,13 @@ module.exports = (req, res) => {
   }
 
   const target = incomingUrl.searchParams.get('url');
-  const platform = (incomingUrl.searchParams.get('platform') || 'auto').toLowerCase();
+  const type = (incomingUrl.searchParams.get('type') || 'video').toLowerCase();
+  const quality = (incomingUrl.searchParams.get('quality') || 'auto').toLowerCase();
 
   if (!target) {
     sendError(res, 400, 'Parameter "url" wajib diisi.');
     return;
   }
 
-  // Saat ini, parameter platform hanya informatif. Validasi dan logika tambahan
-  // per-platform bisa ditambahkan di sini jika dibutuhkan di masa depan.
-  if (!platform) {
-    // default saja ke auto; ini hanya defensive.
-  }
-
-  proxyRequest(target, res, 4);
+  proxyRequest(target, res, 4, { type, quality });
 };

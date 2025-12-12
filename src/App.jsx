@@ -1,18 +1,5 @@
 import React from 'react';
 
-const PLATFORM_OPTIONS = [
-  { value: 'auto', label: 'Deteksi otomatis' },
-  { value: 'instagram', label: 'Instagram' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'twitter', label: 'X (Twitter)' },
-  { value: 'tiktok', label: 'TikTok' },
-  { value: 'youtube', label: 'YouTube' },
-  { value: 'reddit', label: 'Reddit' },
-  { value: 'linkedin', label: 'LinkedIn' },
-  { value: 'snapchat', label: 'Snapchat' },
-  { value: 'other', label: 'Lainnya' }
-];
-
 function detectPlatform(url) {
   if (!url) {
     return { platform: 'auto', label: null };
@@ -23,28 +10,28 @@ function detectPlatform(url) {
     const host = hostname.toLowerCase();
 
     if (host.includes('instagram.com') || host.includes('cdninstagram.com')) {
-      return { platform: 'instagram', label: 'Instagram terdeteksi dari URL' };
+      return { platform: 'instagram', label: 'Instagram' };
     }
     if (host.includes('facebook.com') || host.includes('fbcdn.net')) {
-      return { platform: 'facebook', label: 'Facebook terdeteksi dari URL' };
+      return { platform: 'facebook', label: 'Facebook' };
     }
     if (host.includes('twitter.com') || host.includes('x.com') || host.includes('twimg.com')) {
-      return { platform: 'twitter', label: 'X (Twitter) terdeteksi dari URL' };
+      return { platform: 'twitter', label: 'X (Twitter)' };
     }
     if (host.includes('tiktok.com')) {
-      return { platform: 'tiktok', label: 'TikTok terdeteksi dari URL' };
+      return { platform: 'tiktok', label: 'TikTok' };
     }
     if (host.includes('youtube.com') || host.includes('youtu.be') || host.includes('ytimg.com')) {
-      return { platform: 'youtube', label: 'YouTube terdeteksi dari URL' };
+      return { platform: 'youtube', label: 'YouTube' };
     }
     if (host.includes('reddit.com') || host.includes('redd.it') || host.includes('redditmedia.com')) {
-      return { platform: 'reddit', label: 'Reddit terdeteksi dari URL' };
+      return { platform: 'reddit', label: 'Reddit' };
     }
     if (host.includes('linkedin.com')) {
-      return { platform: 'linkedin', label: 'LinkedIn terdeteksi dari URL' };
+      return { platform: 'linkedin', label: 'LinkedIn' };
     }
     if (host.includes('snapchat.com')) {
-      return { platform: 'snapchat', label: 'Snapchat terdeteksi dari URL' };
+      return { platform: 'snapchat', label: 'Snapchat' };
     }
   } catch {
     // abaikan error parsing, akan dianggap auto
@@ -53,15 +40,28 @@ function detectPlatform(url) {
   return { platform: 'auto', label: null };
 }
 
-function getPlatformLabel(value) {
-  const found = PLATFORM_OPTIONS.find((p) => p.value === value);
-  return found ? found.label : value;
-}
+const QUALITY_OPTIONS_VIDEO = [
+  { value: 'auto', label: 'Auto (terbaik tersedia)' },
+  { value: '360', label: '360p' },
+  { value: '480', label: '480p' },
+  { value: '720', label: '720p HD' },
+  { value: '1080', label: '1080p Full HD' },
+  { value: '1440', label: '1440p' },
+  { value: '2160', label: '2160p 4K' }
+];
+
+const QUALITY_OPTIONS_AUDIO = [
+  { value: 'auto', label: 'Auto (kualitas terbaik)' },
+  { value: 'high', label: 'Tertinggi' },
+  { value: 'medium', label: 'Sedang' },
+  { value: 'low', label: 'Paling hemat data' }
+];
 
 function App() {
   const [url, setUrl] = React.useState('');
-  const [platform, setPlatform] = React.useState('auto');
   const [detected, setDetected] = React.useState({ platform: 'auto', label: null });
+  const [mediaType, setMediaType] = React.useState('video');
+  const [quality, setQuality] = React.useState('auto');
   const [status, setStatus] = React.useState('');
   const [statusType, setStatusType] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -70,14 +70,18 @@ function App() {
   React.useEffect(() => {
     try {
       const savedUrl = window.localStorage.getItem('smd:url');
-      const savedPlatform = window.localStorage.getItem('smd:platform');
+      const savedMediaType = window.localStorage.getItem('smd:type');
+      const savedQuality = window.localStorage.getItem('smd:quality');
       if (savedUrl) {
         setUrl(savedUrl);
         setUrlTouched(true);
         setDetected(detectPlatform(savedUrl));
       }
-      if (savedPlatform) {
-        setPlatform(savedPlatform);
+      if (savedMediaType) {
+        setMediaType(savedMediaType);
+      }
+      if (savedQuality) {
+        setQuality(savedQuality);
       }
     } catch {
       // abaikan jika localStorage tidak tersedia
@@ -87,11 +91,12 @@ function App() {
   React.useEffect(() => {
     try {
       window.localStorage.setItem('smd:url', url);
-      window.localStorage.setItem('smd:platform', platform);
+      window.localStorage.setItem('smd:type', mediaType);
+      window.localStorage.setItem('smd:quality', quality);
     } catch {
       // abaikan
     }
-  }, [url, platform]);
+  }, [url, mediaType, quality]);
 
   function setStatusMessage(message, type) {
     setStatus(message || '');
@@ -109,8 +114,12 @@ function App() {
     setDetected(detection);
   }
 
-  function handlePlatformChange(event) {
-    setPlatform(event.target.value);
+  function handleMediaTypeChange(event) {
+    setMediaType(event.target.value);
+  }
+
+  function handleQualityChange(event) {
+    setQuality(event.target.value);
   }
 
   function handleSubmit(event) {
@@ -137,13 +146,10 @@ function App() {
     setIsSubmitting(true);
     setStatusMessage('Menyiapkan unduhan…', 'info');
 
-    const effectivePlatform = platform === 'auto' && detected.platform !== 'auto'
-      ? detected.platform
-      : platform || 'auto';
-
     const params = new URLSearchParams({
       url: rawUrl,
-      platform: effectivePlatform
+      type: mediaType || 'video',
+      quality: quality || 'auto'
     });
 
     window.location.href = '/api/download?' + params.toString();
@@ -163,7 +169,7 @@ function App() {
     statusType === 'error' &&
     status.toLowerCase().includes('url');
 
-  const showDetectedHint = detected.label && platform === 'auto';
+  const qualityOptions = mediaType === 'audio' ? QUALITY_OPTIONS_AUDIO : QUALITY_OPTIONS_VIDEO;
 
   return (
     <div className="page">
@@ -189,40 +195,49 @@ function App() {
           <h2>Masukkan URL Media</h2>
           <form className="form" onSubmit={handleSubmit}>
             <label className="field">
-              <span className="field-label">Pilih Platform</span>
-              <div className="field-row">
-                <select
-                  value={platform}
-                  onChange={handlePlatformChange}
-                  name="platform"
-                  aria-label="Pilih platform media sosial"
-                >
-                  {PLATFORM_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                {showDetectedHint && (
-                  <span className="pill pill-soft">
-                    {detected.label} ({getPlatformLabel(detected.platform)})
-                  </span>
-                )}
-              </div>
-            </label>
-
-            <label className="field">
               <span className="field-label">URL Konten</span>
               <input
                 value={url}
                 onChange={handleUrlChange}
                 name="url"
                 type="url"
-                placeholder="https://www.instagram.com/p/... atau https://www.youtube.com/watch?v=..."
+                placeholder="Tempel link postingan, misalnya YouTube / Instagram / TikTok"
                 autoComplete="off"
                 inputMode="url"
                 aria-invalid={showUrlError ? 'true' : 'false'}
               />
+              {detected.label && (
+                <span className="hint-subtext">
+                  Platform terdeteksi otomatis: <strong>{detected.label}</strong>
+                </span>
+              )}
+            </label>
+
+            <label className="field">
+              <span className="field-label">Jenis dan kualitas</span>
+              <div className="field-row">
+                <select
+                  value={mediaType}
+                  onChange={handleMediaTypeChange}
+                  name="type"
+                  aria-label="Pilih jenis konten yang akan diunduh"
+                >
+                  <option value="video">Video</option>
+                  <option value="audio">Audio saja</option>
+                </select>
+                <select
+                  value={quality}
+                  onChange={handleQualityChange}
+                  name="quality"
+                  aria-label="Pilih kualitas resolusi"
+                >
+                  {qualityOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
 
             <div className="form-actions">
@@ -255,7 +270,7 @@ function App() {
             <ul>
               <li>Pastikan konten tidak bersifat privat atau hanya teman.</li>
               <li>Gunakan link langsung ke posting / video, bukan ke profil.</li>
-              <li>Beberapa platform mungkin membatasi atau melindungi unduhan langsung.</li>
+              <li>Untuk YouTube, Anda dapat memilih jenis dan kualitas, sisanya akan otomatis.</li>
             </ul>
           </div>
         </section>
