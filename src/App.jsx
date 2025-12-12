@@ -272,9 +272,22 @@ function App() {
         filename: title
       });
 
-      // Arahkan ke Cloudflare Worker untuk mengunduh file
-      window.location.href =
-        'https://downloader.dongtelo75.workers.dev/?' + params.toString();
+      // Jika host adalah googlevideo.com (YouTube), redirect langsung ke mediaUrl
+      // karena beberapa link bisa memblokir proxy Cloudflare dengan 403.
+      try {
+        const mediaHost = new URL(mediaUrl).hostname.toLowerCase();
+        if (mediaHost.includes('googlevideo.com')) {
+          window.location.href = mediaUrl;
+        } else {
+          // Untuk host lain, gunakan Cloudflare Worker sebagai proxy downloader.
+          window.location.href =
+            'https://downloader.dongtelo75.workers.dev/?' + params.toString();
+        }
+      } catch {
+        // Jika parsing URL gagal, tetap gunakan Worker sebagai fallback.
+        window.location.href =
+          'https://downloader.dongtelo75.workers.dev/?' + params.toString();
+      }
 
       window.setTimeout(() => {
         setIsSubmitting(false);
