@@ -3,7 +3,7 @@
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
-const ytdl = require('ytdl-core');
+const ytdl = require('@distube/ytdl-core');
 
 function logDebug(label, data) {
   try {
