@@ -3,7 +3,7 @@
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
-const ytdl = require('@distube/ytdl-core');
+const { aio } = require('btch-downloader');
 
 function logDebug(label, data) {
   try {
@@ -32,7 +32,23 @@ const ALLOWED_HOST_SUFFIXES = [
   'redditmedia.com',
   'linkedin.com',
   'snapchat.com',
-  'cdn.snapchat.com'
+  'cdn.snapchat.com',
+  'mediafire.com',
+  'capcut.com',
+  'drive.google.com',
+  'google.com',
+  'pin.it',
+  'pinterest.com',
+  'douyin.com',
+  'xhslink.com',
+  'xiaohongshu.com',
+  'snackvideo.com',
+  's.snackvideo.com',
+  'icocofun.com',
+  'spotify.com',
+  'open.spotify.com',
+  'soundcloud.com',
+  'threads.net'
 ];
 
 function isAllowedHost(hostname) {
@@ -84,167 +100,84 @@ function getSafeFilename(targetUrl, remoteHeaders) {
   return 'media-download';
 }
 
-function detectPlatform(hostname) {
-  const host = (hostname || '').toLowerCase();
+// Cari URL media pertama dari struktur JSON btch-downloader (sangat generik)
+function findFirstMediaUrl(node) {
+  if (!node) return null;
 
-  if (host.includes('youtube.com') || host.includes('youtu.be') || host.includes('ytimg.com')) {
-    return 'youtube';
+  if (typeof node === 'string') {
+    if (/^https?:\/\//i.test(node)) {
+      return node;
+    }
+    return null;
   }
 
-  // Platform lain bisa ditambahkan di sini di masa depan.
-  return 'generic';
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findFirstMediaUrl(item);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  if (typeof node === 'object') {
+    const preferredKeys = ['download', 'download_url', 'url', 'link', 'href'];
+    for (const key of preferredKeys) {
+      if (Object.prototype.hasOwnProperty.call(node, key)) {
+        const found = findFirstMediaUrl(node[key]);
+        if (found) return found;
+      }
+    }
+    for (const value of Object.values(node)) {
+      const found = findFirstMediaUrl(value);
+      if (found) return found;
+    }
+  }
+
+  return null;
 }
 
-async function handleYouTubeDownload(targetUrl, res, options) {
+async function handleWithBtch(targetUrl, res, options) {
   const type = (options && options.type) || 'video';
   const quality = (options && options.quality) || 'auto';
 
-  logDebug('youtube:start', { targetUrl, type, quality });
+  logDebug('btch:start', { targetUrl, type, quality });
 
-  let info;
+  let data;
   try {
-    info = await ytdl.getInfo(targetUrl);
+    data = await aio(targetUrl);
   } catch (err) {
-    sendError(res, 502, 'Gagal mengambil informasi video YouTube.', {
-      stage: 'getInfo',
+    sendError(res, 502, 'Gagal memproses URL dengan btch-downloader.', {
+      stage: 'btchRequest',
       message: err && err.message
     });
-    return;
+    return true;
   }
 
-  const isAudio = type === 'audio';
-  let chosenFormat;
-
-  if (isAudio) {
-    let audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-    logDebug('youtube:audioFormats:count', { count: audioFormats.length });
-
-    if (!audioFormats.length) {
-      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.', {
-        stage: 'audioFormatsEmpty'
-      });
-      return;
-    }
-
-    audioFormats = audioFormats.filter((f) => typeof f.audioBitrate === 'number');
-    if (!audioFormats.length) {
-      audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-    }
-
-    if (!audioFormats.length) {
-      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.', {
-        stage: 'audioFormatsNoBitrate'
-      });
-      return;
-    }
-
-    audioFormats.sort((a, b) => {
-      const aBit = a.audioBitrate || 0;
-      const bBit = b.audioBitrate || 0;
-      return aBit - bBit;
-    });
-
-    if (quality === 'low') {
-      chosenFormat = audioFormats[0];
-    } else if (quality === 'medium') {
-      chosenFormat = audioFormats[Math.floor(audioFormats.length / 2)];
-    } else {
-      chosenFormat = audioFormats[audioFormats.length - 1];
-    }
-
-    logDebug('youtube:audio:chosen', {
-      itag: chosenFormat && chosenFormat.itag,
-      bitrate: chosenFormat && chosenFormat.audioBitrate
-    });
-  } else {
-    let videoFormats = info.formats.filter((f) => f.hasVideo && f.hasAudio);
-    if (!videoFormats.length) {
-      videoFormats = info.formats.filter((f) => f.hasVideo);
-    }
-    logDebug('youtube:videoFormats:count', { count: videoFormats.length });
-
-    if (!videoFormats.length) {
-      sendError(res, 502, 'Stream video tidak tersedia untuk konten ini.', {
-        stage: 'videoFormatsEmpty'
-      });
-      return;
-    }
-
-    const desiredHeight = parseInt(quality, 10);
-    if (!Number.isNaN(desiredHeight)) {
-      const exact = videoFormats.filter((f) => f.height === desiredHeight);
-      if (exact.length) {
-        chosenFormat = exact[0];
-      } else {
-        const lowerOrEqual = videoFormats
-          .filter((f) => typeof f.height === 'number' && f.height <= desiredHeight)
-          .sort((a, b) => (b.height || 0) - (a.height || 0));
-        if (lowerOrEqual.length) {
-          chosenFormat = lowerOrEqual[0];
-        }
-      }
-    }
-
-    if (!chosenFormat) {
-      const withHeight = videoFormats.filter((f) => typeof f.height === 'number');
-      if (withHeight.length) {
-        withHeight.sort((a, b) => (b.height || 0) - (a.height || 0));
-        chosenFormat = withHeight[0];
-      } else {
-        chosenFormat = videoFormats[0];
-      }
-    }
-
-    logDebug('youtube:video:chosen', {
-      itag: chosenFormat && chosenFormat.itag,
-      height: chosenFormat && chosenFormat.height,
-      mimeType: chosenFormat && chosenFormat.mimeType
-    });
-  }
-
-  if (!chosenFormat) {
-    sendError(res, 502, 'Tidak dapat menentukan format unduhan yang sesuai.', {
-      stage: 'chosenFormatNull'
-    });
-    return;
-  }
-
-  const filenameBase = getSafeFilename(targetUrl, {}) || 'media-download';
-  const container = chosenFormat.container || (isAudio ? 'mp3' : 'mp4');
-  const safeBase = filenameBase.replace(/\.[^.]+$/, '');
-  const filename = (safeBase || 'media-download') + '.' + container.replace(/[^a-z0-9]/gi, '');
-
-  logDebug('youtube:responseHeaders', {
-    filename,
-    mimeType: chosenFormat.mimeType
+  logDebug('btch:raw', {
+    keys: data && typeof data === 'object' ? Object.keys(data) : typeof data,
+    sample:
+      data && typeof data === 'object'
+        ? (Array.isArray(data.result) && data.result[0]) ||
+          (Array.isArray(data.data) && data.data[0]) ||
+          null
+        : null
   });
 
-  res.statusCode = 200;
-  res.setHeader('Content-Type', chosenFormat.mimeType || (isAudio ? 'audio/mpeg' : 'video/mp4'));
-  res.setHeader(
-    'Content-Disposition',
-    'attachment; filename="' + filename.replace(/"/g, '') + '"'
-  );
-  res.setHeader('Cache-Control', 'no-store');
+  const mediaUrl =
+    (data && typeof data === 'object' && findFirstMediaUrl(data)) || findFirstMediaUrl(data);
 
-  const stream = ytdl(targetUrl, { format: chosenFormat });
+  if (!mediaUrl) {
+    sendError(res, 502, 'Tidak dapat menemukan media yang bisa diunduh dari URL tersebut.', {
+      stage: 'btchNoMedia'
+    });
+    return true;
+  }
 
-  stream.on('error', (err) => {
-    if (!res.headersSent) {
-      sendError(res, 502, 'Terjadi kesalahan saat mengalirkan data dari YouTube.', {
-        stage: 'streamError',
-        message: err && err.message
-      });
-    } else {
-      try {
-        res.destroy();
-      } catch (_) {
-        // ignore
-      }
-    }
-  });
+  logDebug('btch:mediaUrl', { mediaUrl });
 
-  stream.pipe(res);
+  // Stream mediaUrl ke client, mirip proxyRequest tapi untuk URL final ini.
+  proxyRequest(mediaUrl, res, 4, options);
+  return true;
 }
 
 function proxyRequest(targetUrl, res, remainingRedirects, options) {
@@ -283,14 +216,6 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
       'Host tidak didukung. Hanya beberapa domain media sosial populer yang diizinkan.',
       { stage: 'hostNotAllowed', hostname: urlObj.hostname }
     );
-    return;
-  }
-
-  const platform = detectPlatform(urlObj.hostname);
-  logDebug('proxy:platform', { hostname: urlObj.hostname, platform });
-
-  if (platform === 'youtube') {
-    handleYouTubeDownload(urlObj.toString(), res, options || {});
     return;
   }
 
@@ -379,7 +304,7 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
   });
 }
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     sendError(res, 405, 'Gunakan metode GET untuk mengunduh media.', { stage: 'method' });
@@ -414,6 +339,17 @@ module.exports = (req, res) => {
   if (!target) {
     sendError(res, 400, 'Parameter "url" wajib diisi.', { stage: 'missingUrl' });
     return;
+  }
+
+  // Coba dulu dengan btch-downloader (mencakup banyak platform).
+  try {
+    const handled = await handleWithBtch(target, res, { type, quality });
+    if (handled) {
+      return;
+    }
+  } catch (err) {
+    logDebug('btch:unhandledError', { message: err && err.message });
+    // fallback ke proxy biasa di bawah
   }
 
   proxyRequest(target, res, 4, { type, quality });
