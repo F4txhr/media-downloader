@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>Unduh Media Sosial - Downloader untuk Berbagai Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="Website sederhana untuk mengunduh media dari berbagai platform media sosial. Gunakan hanya untuk konten yang Anda miliki haknya."
+  />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-inner">
+        <h1>Unduh Media Sosial</h1>
+        <p>Tempel link dari media sosial favorit Anda dan unduh foto atau video dengan mudah.</p>
+        <p class="hero-note">
+          Gunakan hanya untuk konten yang Anda miliki atau telah mendapat izin untuk diunduh.
+        </p>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="card">
+        <h2>Masukkan URL Media</h2>
+        <form id="download-form" class="form">
+          <label class="field">
+            <span class="field-label">Pilih Platform</span>
+            <select id="platform" name="platform">
+              <option value="auto">Deteksi otomatis</option>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="twitter">X (Twitter)</option>
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+              <option value="reddit">Reddit</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="snapchat">Snapchat</option>
+              <option value="other">Lainnya</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">URL Konten</span>
+            <input
+              id="media-url"
+              name="url"
+              type="url"
+              placeholder="https://www.instagram.com/p/... atau https://www.youtube.com/watch?v=..."
+              required
+            />
+          </label>
+
+          <button class="primary-button" type="submit">
+            Mulai Unduh
+          </button>
+
+          <p id="status-message" class="status-message" aria-live="polite"></p>
+        </form>
+
+        <div class="platform-hints">
+          <h3>Tips Cepat</h3>
+          <ul>
+            <li>Pastikan konten tidak bersifat privat atau hanya teman.</li>
+            <li>Gunakan link langsung ke posting / video, bukan ke profil.</li>
+            <li>Beberapa platform mungkin membatasi atau melindungi unduhan langsung.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="card card-secondary">
+        <h2>Catatan Hak Cipta</h2>
+        <p>
+          Aplikasi ini dimaksudkan untuk membantu Anda mengunduh konten yang Anda miliki
+          sendiri atau yang Anda punya izin eksplisit untuk disimpan. Selalu hormati
+          <strong>hak cipta</strong>, <strong>syarat layanan</strong>, dan privasi kreator.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Deploy di Vercel — tidak ada backend terpisah yang perlu dikonfigurasi.</p>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const form = document.getElementById('download-form');
+      const urlInput = document.getElementById('media-url');
+      const platformSelect = document.getElementById('platform');
+      const statusEl = document.getElementById('status-message');
+
+      if (!form) return;
+
+      function setStatus(message, type) {
+        if (!statusEl) return;
+        statusEl.textContent = message || '';
+        statusEl.classList.remove('status-error', 'status-info');
+        if (type) {
+          statusEl.classList.add(type === 'error' ? 'status-error' : 'status-info');
+        }
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        const rawUrl = (urlInput &amp;&amp; urlInput.value || '').trim();
+        const platform = (platformSelect &amp;&amp; platformSelect.value) || 'auto';
+
+        if (!rawUrl) {
+          setStatus('Mohon masukkan URL terlebih dahulu.', 'error');
+          if (urlInput) {
+            urlInput.focus();
+          }
+          return;
+        }
+
+        try {
+          // Validasi dasar URL
+          const parsed = new URL(rawUrl);
+          if (!/^https?:$/.test(parsed.protocol)) {
+            setStatus('URL harus diawali dengan http:// atau https://', 'error');
+            return;
+          }
+        } catch (e) {
+          setStatus('URL tidak valid. Coba periksa kembali.', 'error');
+          return;
+        }
+
+        setStatus('Menyiapkan unduhan…', 'info');
+
+        const params = new URLSearchParams({
+          url: rawUrl,
+          platform: platform || 'auto'
+        });
+
+        // Arahkan browser ke endpoint unduhan sehingga file langsung diunduh.
+        window.location.href = '/api/download?' + params.toString();
+
+        // Berikan pesan jika setelah beberapa detik unduhan tidak terlihat.
+        setTimeout(function () {
+          setStatus(
+            'Jika unduhan belum dimulai, pastikan URL valid, konten tidak privat, dan didukung oleh layanan ini.',
+            'info'
+          );
+        }, 5000);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,289 @@
+:root {
+  --bg-gradient-start: #0f172a;
+  --bg-gradient-end: #020617;
+  --card-bg: #0b1220;
+  --card-border: rgba(148, 163, 184, 0.4);
+  --card-secondary-bg: rgba(15, 23, 42, 0.85);
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+  --accent: #6366f1;
+  --accent-soft: rgba(99, 102, 241, 0.15);
+  --accent-strong: #4f46e5;
+  --danger: #f97373;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.8);
+  --shadow-subtle: 0 12px 30px rgba(15, 23, 42, 0.7);
+  --transition-fast: 160ms ease-out;
+  --transition-normal: 220ms ease-out;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
+    "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, var(--bg-gradient-start), #020617 52%)
+      fixed,
+    linear-gradient(to bottom, var(--bg-gradient-start), var(--bg-gradient-end)) fixed;
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  padding: 32px 16px 8px;
+}
+
+.hero-inner {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2.1rem, 4vw, 2.8rem);
+  letter-spacing: -0.03em;
+  color: #f9fafb;
+}
+
+.hero p {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--text-muted);
+}
+
+.hero-note {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #cbd5f5;
+}
+
+.main {
+  flex: 1;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 8px 16px 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 3fr);
+  gap: 20px;
+}
+
+.card {
+  background: radial-gradient(circle at top left, rgba(148, 163, 255, 0.18), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.16), transparent 60%),
+    var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--card-border);
+  padding: 20px 18px 18px;
+  box-shadow: var(--shadow-soft);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 58%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.card h2 {
+  margin: 0 0 14px;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.card-secondary {
+  background: var(--card-secondary-bg);
+  box-shadow: var(--shadow-subtle);
+}
+
+.card-secondary h2 {
+  font-size: 1.1rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-size: 0.9rem;
+  color: #cbd5f5;
+}
+
+input[type="url"],
+select {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background-color: rgba(15, 23, 42, 0.85);
+  color: var(--text-main);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+    background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+input::placeholder {
+  color: rgba(156, 163, 175, 0.8);
+}
+
+input[type="url"]:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.7);
+  background-color: rgba(15, 23, 42, 0.95);
+  transform: translateY(-1px);
+}
+
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #e5e7eb 50%),
+    linear-gradient(135deg, #e5e7eb 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 10px) 50%;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 30px;
+}
+
+.primary-button {
+  margin-top: 4px;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: radial-gradient(circle at top left, #a855f7, #4f46e5);
+  color: #f9fafb;
+  font-weight: 600;
+  font-size: 0.96rem;
+  cursor: pointer;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast),
+    filter var(--transition-fast), background-position 200ms ease-out;
+  box-shadow: 0 16px 30px rgba(79, 70, 229, 0.5);
+  background-size: 140% 140%;
+}
+
+.primary-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  background-position: 100% 0%;
+  box-shadow: 0 18px 40px rgba(79, 70, 229, 0.6);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+  box-shadow: 0 10px 20px rgba(79, 70, 229, 0.45);
+}
+
+.status-message {
+  min-height: 18px;
+  margin-top: 4px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.status-error {
+  color: var(--danger);
+}
+
+.status-info {
+  color: #bfdbfe;
+}
+
+.platform-hints {
+  margin-top: 16px;
+  padding: 12px 12px 10px;
+  border-radius: var(--radius-md);
+  background-color: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.platform-hints h3 {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  letter-spacing: -0.01em;
+  color: #d1d5db;
+}
+
+.platform-hints ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.platform-hints li + li {
+  margin-top: 4px;
+}
+
+.footer {
+  padding: 18px 16px 28px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: rgba(148, 163, 184, 0.8);
+}
+
+/* Larger screens */
+@media (min-width: 720px) {
+  .hero {
+    padding: 40px 24px 12px;
+  }
+
+  .main {
+    padding: 12px 24px 40px;
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.5fr);
+  }
+
+  .card {
+    padding: 22px 22px 18px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
