@@ -3,7 +3,26 @@
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
-const { aio } = require('btch-downloader');
+const {
+  aio,
+  ttdl,
+  igdl,
+  fbdown,
+  twitter,
+  youtube,
+  mediafire,
+  capcut,
+  gdrive,
+  pinterest,
+  douyin,
+  xiaohongshu,
+  snackvideo,
+  cocofun,
+  spotify,
+  soundcloud,
+  threads,
+  yts
+} = require('btch-downloader');
 
 function logDebug(label, data) {
   try {
@@ -136,15 +155,46 @@ function findFirstMediaUrl(node) {
   return null;
 }
 
+function pickBtchFunction(urlString) {
+  const lower = (urlString || '').toLowerCase();
+
+  if (lower.includes('instagram.com')) return igdl;
+  if (lower.includes('tiktok.com') || lower.includes('vt.tiktok.com')) return ttdl;
+  if (lower.includes('facebook.com')) return fbdown;
+  if (lower.includes('twitter.com') || lower.includes('x.com')) return twitter;
+  if (lower.includes('youtube.com') || lower.includes('youtu.be')) return youtube;
+  if (lower.includes('mediafire.com')) return mediafire;
+  if (lower.includes('capcut.com')) return capcut;
+  if (lower.includes('drive.google.com')) return gdrive;
+  if (lower.includes('pin.it') || lower.includes('pinterest.com')) return pinterest;
+  if (lower.includes('douyin.com')) return douyin;
+  if (lower.includes('xhslink.com') || lower.includes('xiaohongshu.com')) return xiaohongshu;
+  if (lower.includes('snackvideo.com') || lower.includes('s.snackvideo.com')) return snackvideo;
+  if (lower.includes('icocofun.com')) return cocofun;
+  if (lower.includes('spotify.com') || lower.includes('open.spotify.com')) return spotify;
+  if (lower.includes('soundcloud.com')) return soundcloud;
+  if (lower.includes('threads.net')) return threads;
+
+  // Jika bukan URL, gunakan YTS (search), kalau URL tapi tak terdeteksi pakai aio.
+  try {
+    new URL(urlString);
+    return aio;
+  } catch (_) {
+    return yts;
+  }
+}
+
 async function handleWithBtch(targetUrl, res, options) {
   const type = (options && options.type) || 'video';
   const quality = (options && options.quality) || 'auto';
 
   logDebug('btch:start', { targetUrl, type, quality });
 
+  const fn = pickBtchFunction(targetUrl);
+
   let data;
   try {
-    data = await aio(targetUrl);
+    data = await fn(targetUrl);
   } catch (err) {
     sendError(res, 502, 'Gagal memproses URL dengan btch-downloader.', {
       stage: 'btchRequest',
@@ -153,8 +203,13 @@ async function handleWithBtch(targetUrl, res, options) {
     return true;
   }
 
+  const keys = data && typeof data === 'object' ? Object.keys(data) : typeof data;
+  const status = data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'status') ? data.status : undefined;
+
   logDebug('btch:raw', {
-    keys: data && typeof data === 'object' ? Object.keys(data) : typeof data,
+    keys,
+    status,
+    mess: data && data.mess ? data.mess : undefined,
     sample:
       data && typeof data === 'object'
         ? (Array.isArray(data.result) && data.result[0]) ||
@@ -163,12 +218,36 @@ async function handleWithBtch(targetUrl, res, options) {
         : null
   });
 
-  const mediaUrl =
-    (data && typeof data === 'object' && findFirstMediaUrl(data)) || findFirstMediaUrl(data);
+  if (status === false) {
+    sendError(res, 502, data && data.mess ? String(data.mess) : 'Layanan btch-downloader mengembalikan status gagal.', {
+      stage: 'btchStatusFalse'
+    });
+    return true;
+  }
+
+  // Coba cari media di field umum (result, data, dll.)
+  let rootForSearch = data;
+  if (data && typeof data === 'object') {
+    if (Array.isArray(data.result) && data.result.length) {
+      rootForSearch = data.result;
+    } else if (Array.isArray(data.data) && data.data.length) {
+      rootForSearch = data.data;
+    }
+  }
+
+  const mediaUrl = findFirstMediaUrl(rootForSearch);
 
   if (!mediaUrl) {
     sendError(res, 502, 'Tidak dapat menemukan media yang bisa diunduh dari URL tersebut.', {
       stage: 'btchNoMedia'
+    });
+    return true;
+  }
+
+  // Jangan fallback ke URL awal kalau btch tidak menemukan apa-apa.
+  if (mediaUrl === targetUrl) {
+    sendError(res, 502, 'btch-downloader hanya mengembalikan URL asal, tidak ada media langsung.', {
+      stage: 'btchReturnedOriginalUrl'
     });
     return true;
   }
