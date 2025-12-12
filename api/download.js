@@ -5,6 +5,15 @@ const https = require('https');
 const { URL } = require('url');
 const ytdl = require('ytdl-core');
 
+function logDebug(label, data) {
+  try {
+    // Log sederhana ke console (akan muncul di log Vercel)
+    console.log('[download-api]', label, JSON.stringify(data));
+  } catch (e) {
+    console.log('[download-api]', label, data);
+  }
+}
+
 const ALLOWED_HOST_SUFFIXES = [
   'instagram.com',
   'cdninstagram.com',
@@ -32,7 +41,8 @@ function isAllowedHost(hostname) {
   });
 }
 
-function sendError(res, statusCode, message) {
+function sendError(res, statusCode, message, extra) {
+  logDebug('error', { statusCode, message, extra });
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(
@@ -89,11 +99,16 @@ async function handleYouTubeDownload(targetUrl, res, options) {
   const type = (options && options.type) || 'video';
   const quality = (options && options.quality) || 'auto';
 
+  logDebug('youtube:start', { targetUrl, type, quality });
+
   let info;
   try {
     info = await ytdl.getInfo(targetUrl);
   } catch (err) {
-    sendError(res, 502, 'Gagal mengambil informasi video YouTube.');
+    sendError(res, 502, 'Gagal mengambil informasi video YouTube.', {
+      stage: 'getInfo',
+      message: err && err.message
+    });
     return;
   }
 
@@ -102,8 +117,12 @@ async function handleYouTubeDownload(targetUrl, res, options) {
 
   if (isAudio) {
     let audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+    logDebug('youtube:audioFormats:count', { count: audioFormats.length });
+
     if (!audioFormats.length) {
-      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.');
+      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.', {
+        stage: 'audioFormatsEmpty'
+      });
       return;
     }
 
@@ -113,7 +132,9 @@ async function handleYouTubeDownload(targetUrl, res, options) {
     }
 
     if (!audioFormats.length) {
-      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.');
+      sendError(res, 502, 'Stream audio tidak tersedia untuk konten ini.', {
+        stage: 'audioFormatsNoBitrate'
+      });
       return;
     }
 
@@ -130,13 +151,22 @@ async function handleYouTubeDownload(targetUrl, res, options) {
     } else {
       chosenFormat = audioFormats[audioFormats.length - 1];
     }
+
+    logDebug('youtube:audio:chosen', {
+      itag: chosenFormat && chosenFormat.itag,
+      bitrate: chosenFormat && chosenFormat.audioBitrate
+    });
   } else {
     let videoFormats = info.formats.filter((f) => f.hasVideo && f.hasAudio);
     if (!videoFormats.length) {
       videoFormats = info.formats.filter((f) => f.hasVideo);
     }
+    logDebug('youtube:videoFormats:count', { count: videoFormats.length });
+
     if (!videoFormats.length) {
-      sendError(res, 502, 'Stream video tidak tersedia untuk konten ini.');
+      sendError(res, 502, 'Stream video tidak tersedia untuk konten ini.', {
+        stage: 'videoFormatsEmpty'
+      });
       return;
     }
 
@@ -164,10 +194,18 @@ async function handleYouTubeDownload(targetUrl, res, options) {
         chosenFormat = videoFormats[0];
       }
     }
+
+    logDebug('youtube:video:chosen', {
+      itag: chosenFormat && chosenFormat.itag,
+      height: chosenFormat && chosenFormat.height,
+      mimeType: chosenFormat && chosenFormat.mimeType
+    });
   }
 
   if (!chosenFormat) {
-    sendError(res, 502, 'Tidak dapat menentukan format unduhan yang sesuai.');
+    sendError(res, 502, 'Tidak dapat menentukan format unduhan yang sesuai.', {
+      stage: 'chosenFormatNull'
+    });
     return;
   }
 
@@ -175,6 +213,11 @@ async function handleYouTubeDownload(targetUrl, res, options) {
   const container = chosenFormat.container || (isAudio ? 'mp3' : 'mp4');
   const safeBase = filenameBase.replace(/\.[^.]+$/, '');
   const filename = (safeBase || 'media-download') + '.' + container.replace(/[^a-z0-9]/gi, '');
+
+  logDebug('youtube:responseHeaders', {
+    filename,
+    mimeType: chosenFormat.mimeType
+  });
 
   res.statusCode = 200;
   res.setHeader('Content-Type', chosenFormat.mimeType || (isAudio ? 'audio/mpeg' : 'video/mp4'));
@@ -186,9 +229,12 @@ async function handleYouTubeDownload(targetUrl, res, options) {
 
   const stream = ytdl(targetUrl, { format: chosenFormat });
 
-  stream.on('error', () => {
+  stream.on('error', (err) => {
     if (!res.headersSent) {
-      sendError(res, 502, 'Terjadi kesalahan saat mengalirkan data dari YouTube.');
+      sendError(res, 502, 'Terjadi kesalahan saat mengalirkan data dari YouTube.', {
+        stage: 'streamError',
+        message: err && err.message
+      });
     } else {
       try {
         res.destroy();
@@ -202,8 +248,12 @@ async function handleYouTubeDownload(targetUrl, res, options) {
 }
 
 function proxyRequest(targetUrl, res, remainingRedirects, options) {
+  logDebug('proxy:start', { targetUrl, remainingRedirects, options });
+
   if (remainingRedirects <= 0) {
-    sendError(res, 502, 'Terlalu banyak redirect dari server tujuan.');
+    sendError(res, 502, 'Terlalu banyak redirect dari server tujuan.', {
+      stage: 'redirectLimit'
+    });
     return;
   }
 
@@ -211,12 +261,18 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
   try {
     urlObj = new URL(targetUrl);
   } catch (e) {
-    sendError(res, 400, 'URL tujuan tidak valid.');
+    sendError(res, 400, 'URL tujuan tidak valid.', {
+      stage: 'parseTargetUrl',
+      message: e && e.message
+    });
     return;
   }
 
   if (!['http:', 'https:'].includes(urlObj.protocol)) {
-    sendError(res, 400, 'Hanya protokol http dan https yang didukung.');
+    sendError(res, 400, 'Hanya protokol http dan https yang didukung.', {
+      stage: 'invalidProtocol',
+      protocol: urlObj.protocol
+    });
     return;
   }
 
@@ -224,12 +280,15 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
     sendError(
       res,
       400,
-      'Host tidak didukung. Hanya beberapa domain media sosial populer yang diizinkan.'
+      'Host tidak didukung. Hanya beberapa domain media sosial populer yang diizinkan.',
+      { stage: 'hostNotAllowed', hostname: urlObj.hostname }
     );
     return;
   }
 
   const platform = detectPlatform(urlObj.hostname);
+  logDebug('proxy:platform', { hostname: urlObj.hostname, platform });
+
   if (platform === 'youtube') {
     handleYouTubeDownload(urlObj.toString(), res, options || {});
     return;
@@ -239,14 +298,18 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
 
   const remoteReq = client.get(urlObj.toString(), (remoteRes) => {
     const statusCode = remoteRes.statusCode || 0;
+    logDebug('proxy:remoteResponse', { statusCode, headers: remoteRes.headers });
 
     // Tangani redirect (misalnya ke CDN)
     if (statusCode >= 300 && statusCode < 400 && remoteRes.headers.location) {
       let nextUrl;
       try {
         nextUrl = new URL(remoteRes.headers.location, urlObj);
-      } catch (_) {
-        sendError(res, 502, 'Redirect dari server tujuan tidak valid.');
+      } catch (e) {
+        sendError(res, 502, 'Redirect dari server tujuan tidak valid.', {
+          stage: 'redirectParse',
+          message: e && e.message
+        });
         return;
       }
 
@@ -258,13 +321,16 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
       sendError(
         res,
         502,
-        'Gagal mengambil konten dari URL yang diberikan (kode: ' + statusCode + ').'
+        'Gagal mengambil konten dari URL yang diberikan (kode: ' + statusCode + ').',
+        { stage: 'remoteStatus', statusCode }
       );
       return;
     }
 
     const contentType = remoteRes.headers['content-type'] || 'application/octet-stream';
     const filename = getSafeFilename(targetUrl, remoteRes.headers);
+
+    logDebug('proxy:responseHeaders', { filename, contentType });
 
     res.statusCode = 200;
     res.setHeader('Content-Type', contentType);
@@ -274,9 +340,12 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
     );
     res.setHeader('Cache-Control', 'no-store');
 
-    remoteRes.on('error', () => {
+    remoteRes.on('error', (err) => {
       if (!res.headersSent) {
-        sendError(res, 502, 'Terjadi kesalahan saat mengalirkan data dari server tujuan.');
+        sendError(res, 502, 'Terjadi kesalahan saat mengalirkan data dari server tujuan.', {
+          stage: 'remoteStreamError',
+          message: err && err.message
+        });
       } else {
         try {
           res.destroy();
@@ -291,7 +360,10 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
 
   remoteReq.on('error', (err) => {
     if (!res.headersSent) {
-      sendError(res, 502, 'Tidak dapat terhubung ke URL yang diberikan.');
+      sendError(res, 502, 'Tidak dapat terhubung ke URL yang diberikan.', {
+        stage: 'requestError',
+        message: err && err.message
+      });
     } else {
       try {
         res.destroy(err);
@@ -302,6 +374,7 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
   });
 
   remoteReq.setTimeout(25000, () => {
+    logDebug('proxy:timeout', { targetUrl });
     remoteReq.destroy(new Error('Request timeout'));
   });
 }
@@ -309,7 +382,7 @@ function proxyRequest(targetUrl, res, remainingRedirects, options) {
 module.exports = (req, res) => {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
-    sendError(res, 405, 'Gunakan metode GET untuk mengunduh media.');
+    sendError(res, 405, 'Gunakan metode GET untuk mengunduh media.', { stage: 'method' });
     return;
   }
 
@@ -318,8 +391,12 @@ module.exports = (req, res) => {
 
   try {
     incomingUrl = new URL(req.url, 'http://' + host);
-  } catch (_) {
-    sendError(res, 400, 'Permintaan tidak valid.');
+  } catch (e) {
+    sendError(res, 400, 'Permintaan tidak valid.', {
+      stage: 'parseIncomingUrl',
+      message: e && e.message,
+      rawUrl: req.url
+    });
     return;
   }
 
@@ -327,8 +404,15 @@ module.exports = (req, res) => {
   const type = (incomingUrl.searchParams.get('type') || 'video').toLowerCase();
   const quality = (incomingUrl.searchParams.get('quality') || 'auto').toLowerCase();
 
+  logDebug('request:parsed', {
+    url: target,
+    type,
+    quality,
+    pathname: incomingUrl.pathname
+  });
+
   if (!target) {
-    sendError(res, 400, 'Parameter "url" wajib diisi.');
+    sendError(res, 400, 'Parameter "url" wajib diisi.', { stage: 'missingUrl' });
     return;
   }
 
