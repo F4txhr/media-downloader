@@ -260,6 +260,108 @@ select {
   color: rgba(148, 163, 184, 0.8);
 }
 
+/* UX tambahan untuk React */
+
+.hero-pill-row {
+  margin-bottom: 10px;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #c7d2fe;
+  background: rgba(30, 64, 175, 0.8);
+  border: 1px solid rgba(129, 140, 248, 0.7);
+  box-shadow: 0 8px 22px rgba(30, 64, 175, 0.55);
+}
+
+.card-main {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 0% 0%, rgba(129, 140, 248, 0.22), transparent 55%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+}
+
+.card-main:hover::after {
+  opacity: 1;
+}
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  border: 1px solid rgba(129, 140, 248, 0.6);
+  color: #e5e7eb;
+}
+
+.pill-soft {
+  background-color: rgba(15, 23, 42, 0.82);
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hint-subtext {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Animasi halus untuk masuknya konten */
+
+.hero-inner,
+.card {
+  animation: fadeInUp 380ms var(--transition-normal);
+  animation-fill-mode: both;
+}
+
+.card.card-secondary {
+  animation-delay: 60ms;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.secondary-footnote {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: rgba(148, 163, 184, 0.9);
+}
+
 /* Larger screens */
 @media (min-width: 720px) {
   .hero {
