@@ -204,12 +204,17 @@ async function handleWithBtch(targetUrl, res, options) {
   }
 
   const keys = data && typeof data === 'object' ? Object.keys(data) : typeof data;
-  const status = data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'status') ? data.status : undefined;
+  const status =
+    data &&
+    typeof data === 'object' &&
+    Object.prototype.hasOwnProperty.call(data, 'status')
+      ? data.status
+      : undefined;
 
   logDebug('btch:raw', {
     keys,
     status,
-    mess: data && data.mess ? data.mess : undefined,
+    mess: data && (data.mess || data.message) ? (data.mess || data.message) : undefined,
     sample:
       data && typeof data === 'object'
         ? (Array.isArray(data.result) && data.result[0]) ||
@@ -219,16 +224,28 @@ async function handleWithBtch(targetUrl, res, options) {
   });
 
   if (status === false) {
-    sendError(res, 502, data && data.mess ? String(data.mess) : 'Layanan btch-downloader mengembalikan status gagal.', {
-      stage: 'btchStatusFalse'
-    });
+    sendError(
+      res,
+      502,
+      data && (data.mess || data.message)
+        ? String(data.mess || data.message)
+        : 'Layanan btch-downloader mengembalikan status gagal.',
+      { stage: 'btchStatusFalse' }
+    );
     return true;
   }
 
-  // Coba cari media di field umum (result, data, dll.)
+  // Tentukan akar pencarian berdasarkan pola umum dari docs:
+  // - Untuk banyak layanan, mp4/mp3 ada di field khusus
+  // - result[] atau data[] kadang juga menampung list media
   let rootForSearch = data;
   if (data && typeof data === 'object') {
-    if (Array.isArray(data.result) && data.result.length) {
+    // Untuk YouTube, docs menunjukkan mp4/mp3 di top-level
+    if (data.mp4 && type !== 'audio') {
+      rootForSearch = data.mp4;
+    } else if (data.mp3 && type === 'audio') {
+      rootForSearch = data.mp3;
+    } else if (Array.isArray(data.result) && data.result.length) {
       rootForSearch = data.result;
     } else if (Array.isArray(data.data) && data.data.length) {
       rootForSearch = data.data;
