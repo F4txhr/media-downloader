@@ -122,7 +122,42 @@ function App() {
     setQuality(event.target.value);
   }
 
-  function handleSubmit(event) {
+  function findFirstMediaUrl(node) {
+    if (!node) return null;
+
+    if (typeof node === 'string') {
+      if (/^https?:\/\//i.test(node)) {
+        return node;
+      }
+      return null;
+    }
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = findFirstMediaUrl(item);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    if (typeof node === 'object') {
+      const preferredKeys = ['download', 'download_url', 'url', 'link', 'href', 'video', 'audio'];
+      for (const key of preferredKeys) {
+        if (Object.prototype.hasOwnProperty.call(node, key)) {
+          const found = findFirstMediaUrl(node[key]);
+          if (found) return found;
+        }
+      }
+      for (const value of Object.values(node)) {
+        const found = findFirstMediaUrl(value);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  }
+
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const rawUrl = (url || '').trim();
@@ -143,24 +178,92 @@ function App() {
       return;
     }
 
+    const btch = window.btch;
+    if (!btch) {
+      setStatusMessage('Library btch-downloader belum dimuat. Coba muat ulang halaman.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
-    setStatusMessage('Menyiapkan unduhan…', 'info');
+    setStatusMessage('Menghubungi layanan downloader…', 'info');
 
-    const params = new URLSearchParams({
-      url: rawUrl,
-      type: mediaType || 'video',
-      quality: quality || 'auto'
-    });
+    try {
+      // Gunakan aio (auto detect) seperti di dokumentasi btch
+      const data = await btch.aio(rawUrl);
 
-    window.location.href = '/api/download?' + params.toString();
+      if (!data || typeof data !== 'object') {
+        setStatusMessage('Respon downloader tidak dikenali.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
 
-    window.setTimeout(() => {
-      setIsSubmitting(false);
+      if (data.status === false) {
+        const msg = data.mess || data.message || 'Layanan downloader menolak URL ini.';
+        setStatusMessage(String(msg), 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Tentukan akar pencarian berdasarkan pola umum dari docs:
+      // - Untuk YouTube, mp4/mp3 ada di field khusus
+      let rootForSearch = data;
+      if (data.mp4 && mediaType !== 'audio') {
+        rootForSearch = data.mp4;
+      } else if (data.mp3 && mediaType === 'audio') {
+        rootForSearch = data.mp3;
+      } else if (Array.isArray(data.result) && data.result.length) {
+        rootForSearch = data.result;
+      } else if (Array.isArray(data.data) && data.data.length) {
+        rootForSearch = data.data;
+      }
+
+      const mediaUrl = findFirstMediaUrl(rootForSearch);
+
+      if (!mediaUrl) {
+        setStatusMessage(
+          'Tidak dapat menemukan media yang bisa diunduh dari URL ini. Coba URL lain.',
+          'error'
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (mediaUrl === rawUrl) {
+        setStatusMessage(
+          'Downloader hanya mengembalikan URL asal, tidak ada link media langsung. Coba URL lain.',
+          'error'
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      const title = typeof data.title === 'string' && data.title.trim().length > 0
+        ? data.title.trim()
+        : 'media-download';
+
+      const params = new URLSearchParams({
+        mediaUrl,
+        filename: title
+      });
+
+      // Arahkan ke Cloudflare Worker untuk mengunduh file
+      window.location.href =
+        'https://downloader.dongtelo75.workers.dev/?' + params.toString();
+
+      window.setTimeout(() => {
+        setIsSubmitting(false);
+        setStatusMessage(
+          'Jika unduhan belum dimulai, pastikan URL valid, konten tidak privat, dan didukung oleh layanan ini.',
+          'info'
+        );
+      }, 5000);
+    } catch (err) {
       setStatusMessage(
-        'Jika unduhan belum dimulai, pastikan URL valid, konten tidak privat, dan didukung oleh layanan ini.',
-        'info'
+        'Terjadi kesalahan saat menghubungi layanan downloader. Coba lagi beberapa saat.',
+        'error'
       );
-    }, 5000);
+      setIsSubmitting(false);
+    }
   }
 
   const showUrlError =
