@@ -157,6 +157,31 @@ function App() {
     return null;
   }
 
+  function pickBtchFn(rawUrl, platformInfo) {
+    const btch = window.btch;
+    const lower = (rawUrl || '').toLowerCase();
+    const plat = (platformInfo && platformInfo.platform) || 'auto';
+
+    if (plat === 'youtube' || lower.includes('youtube.com') || lower.includes('youtu.be')) {
+      return btch.youtube || btch.aio;
+    }
+    if (plat === 'tiktok' || lower.includes('tiktok.com') || lower.includes('vt.tiktok.com')) {
+      return btch.ttdl || btch.aio;
+    }
+    if (plat === 'instagram' || lower.includes('instagram.com')) {
+      return btch.igdl || btch.aio;
+    }
+    if (plat === 'facebook' || lower.includes('facebook.com')) {
+      return btch.fbdown || btch.aio;
+    }
+    if (plat === 'twitter' || lower.includes('twitter.com') || lower.includes('x.com')) {
+      return btch.twitter || btch.aio;
+    }
+
+    // fallback ke AIO auto-detect
+    return btch.aio;
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -188,8 +213,8 @@ function App() {
     setStatusMessage('Menghubungi layanan downloader…', 'info');
 
     try {
-      // Gunakan aio (auto detect) seperti di dokumentasi btch
-      const data = await btch.aio(rawUrl);
+      const fn = pickBtchFn(rawUrl, detected);
+      const data = await fn(rawUrl);
 
       if (!data || typeof data !== 'object') {
         setStatusMessage('Respon downloader tidak dikenali.', 'error');
@@ -237,9 +262,10 @@ function App() {
         return;
       }
 
-      const title = typeof data.title === 'string' && data.title.trim().length > 0
-        ? data.title.trim()
-        : 'media-download';
+      const title =
+        typeof data.title === 'string' && data.title.trim().length > 0
+          ? data.title.trim()
+          : 'media-download';
 
       const params = new URLSearchParams({
         mediaUrl,
