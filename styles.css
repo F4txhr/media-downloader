@@ -613,16 +613,50 @@ select {
   color: rgba(148, 163, 184, 0.9);
 }
 
+/* Layout responsif */
+
+/* Mobile & tablet: stack sidebar + tools satu kolom */
+@media (max-width: 799px) {
+  .main-with-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    margin-bottom: 14px;
+  }
+
+  .tool-panel {
+    padding: 16px 14px 14px;
+  }
+
+  .tool-grid,
+  .tool-grid-single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tool-preview {
+    padding-top: 6px;
+  }
+}
+
 /* Larger screens */
-@media (min-width: 720px) {
+@media (min-width: 800px) {
   .hero {
     padding: 40px 24px 12px;
   }
 
   .main {
     padding: 12px 24px 40px;
-    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.5fr);
   }
+
+  .card {
+    padding: 22px 22px 18px;
+  }
+
+  .tools-container {
+    max-width: 720px;
+  }
+}
 
   .card {
     padding: 22px 22px 18px;
