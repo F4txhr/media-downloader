@@ -1,19 +1,20 @@
 :root {
-  --bg-gradient-start: #0f172a;
-  --bg-gradient-end: #020617;
-  --card-bg: #0b1220;
-  --card-border: rgba(148, 163, 184, 0.4);
-  --card-secondary-bg: rgba(15, 23, 42, 0.85);
-  --text-main: #e5e7eb;
-  --text-muted: #9ca3af;
+  /* Tema terang */
+  --bg-gradient-start: #eef2ff;
+  --bg-gradient-end: #e5e7eb;
+  --card-bg: #ffffff;
+  --card-border: rgba(148, 163, 184, 0.55);
+  --card-secondary-bg: #f9fafb;
+  --text-main: #0f172a;
+  --text-muted: #6b7280;
   --accent: #6366f1;
-  --accent-soft: rgba(99, 102, 241, 0.15);
+  --accent-soft: rgba(99, 102, 241, 0.08);
   --accent-strong: #4f46e5;
-  --danger: #f97373;
+  --danger: #dc2626;
   --radius-lg: 18px;
   --radius-md: 12px;
-  --shadow-soft: 0 24px 60px rgba(15, 23, 42, 0.8);
-  --shadow-subtle: 0 12px 30px rgba(15, 23, 42, 0.7);
+  --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.15);
+  --shadow-subtle: 0 10px 24px rgba(15, 23, 42, 0.06);
   --transition-fast: 160ms ease-out;
   --transition-normal: 220ms ease-out;
 }
@@ -34,8 +35,8 @@ body {
   min-height: 100vh;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter",
     "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, var(--bg-gradient-start), #020617 52%)
-      fixed,
+  background:
+    radial-gradient(circle at top, rgba(129, 140, 248, 0.18), transparent 55%) fixed,
     linear-gradient(to bottom, var(--bg-gradient-start), var(--bg-gradient-end)) fixed;
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
@@ -91,8 +92,8 @@ body {
 }
 
 .card {
-  background: radial-gradient(circle at top left, rgba(148, 163, 255, 0.18), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.16), transparent 60%),
+  background: radial-gradient(circle at top left, rgba(148, 163, 255, 0.22), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.18), transparent 60%),
     var(--card-bg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--card-border);
@@ -106,8 +107,8 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 58%);
-  opacity: 0.3;
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.6), transparent 58%);
+  opacity: 0.5;
   pointer-events: none;
 }
 
@@ -222,8 +223,8 @@ input[type="url"],
 select {
   width: 100%;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  background-color: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background-color: #ffffff;
   color: var(--text-main);
   padding: 10px 12px;
   font-size: 0.95rem;
@@ -240,7 +241,7 @@ input[type="url"]:focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.7);
-  background-color: rgba(15, 23, 42, 0.95);
+  background-color: #f9fafb;
   transform: translateY(-1px);
 }
 
@@ -338,7 +339,7 @@ select {
 /* Sidebar layout untuk toolkit */
 
 .sidebar {
-  background: rgba(15, 23, 42, 0.95);
+  background: #ffffff;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(148, 163, 184, 0.5);
   padding: 18px 14px 14px;
@@ -412,9 +413,9 @@ select {
 }
 
 .code-block {
-  background: rgba(15, 23, 42, 0.95);
+  background: #f9fafb;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(148, 163, 184, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.7);
   padding: 8px 10px 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
@@ -439,9 +440,9 @@ select {
 
 .code-block button {
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.7);
-  background: transparent;
-  color: #e5e7eb;
+  border: 1px solid rgba(148, 163, 184, 0.8);
+  background: #ffffff;
+  color: #1f2933;
   font-size: 0.75rem;
   padding: 4px 10px;
   cursor: pointer;
@@ -465,15 +466,15 @@ select {
 
 .palette-swatch {
   border-radius: var(--radius-md);
-  border: 1px solid rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.7);
   padding: 10px 8px;
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: #f9fafb;
-  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.75);
+  color: #0f172a;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.18);
   background-size: 200% 200%;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast),
     background-position var(--transition-fast), border-color var(--transition-fast);
@@ -526,10 +527,10 @@ select {
   font-size: 0.75rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #c7d2fe;
-  background: rgba(30, 64, 175, 0.8);
+  color: #3730a3;
+  background: rgba(191, 219, 254, 0.9);
   border: 1px solid rgba(129, 140, 248, 0.7);
-  box-shadow: 0 8px 22px rgba(30, 64, 175, 0.55);
+  box-shadow: 0 8px 22px rgba(148, 163, 255, 0.4);
 }
 
 .card-main {
