@@ -1,0 +1,26 @@
+# Dependencies
+**/node_modules/
+
+# Next.js
+.next/
+out/
+frontend/.next/
+frontend/out/
+
+# Cloudflare Workers
+.wrangler/
+worker/.wrangler/
+
+# Production
+build/
+
+# Miscellaneous
+.DS_Store
+*.pem
+*.log
+.env
+.env*
+!*.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
