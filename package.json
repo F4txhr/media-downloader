@@ -1,0 +1,20 @@
+{
+  "name": "social-media-downloader",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web React untuk mengunduh media sosial, siap di-deploy di Vercel.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "btch-downloader": "^6.0.23"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.8"
+  }
+}
